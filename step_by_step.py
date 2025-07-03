@@ -20,9 +20,14 @@ for ticker in ticker_options:
 # Mostrar las primeras filas
 print(stock_dataframe.head())
 
-n_input = 24   # meses de entrada
-n_output = 12  # meses a predecir
 target_col = 'AAPL_Average_Price'
+
+contemporary_data = yf.download("AAPL", start="2023-01-01", end="2025-01-01", interval="1mo")
+contemporary_data[target_col] = (contemporary_data['Open'] + contemporary_data['High'] + contemporary_data['Low'] + contemporary_data['Close']) / 4
+
+n_input = 12   # meses de entrada
+n_output = 12  # meses a predecir
+
 
 df_delta = stock_dataframe.pct_change().dropna()  # o df.diff() si preferís diferencias absolutas
 
@@ -35,15 +40,13 @@ X = np.array(X)
 y = np.array(y)
 
 model = Sequential()
-model.add(LSTM(64, activation='relu', input_shape=(n_input, X.shape[2])))
+model.add(LSTM(128, activation='relu', input_shape=(n_input, X.shape[2])))
 model.add(Dense(n_output))
 model.compile(optimizer='adam', loss='mse')
 model.fit(X, y, epochs=100, verbose=0)
 
 last_input = df_delta.iloc[-n_input:].values.reshape(1, n_input, X.shape[2])
 delta_pred = model.predict(last_input).flatten()  # predicción de cambios relativos
-
-delta_pred = [0.02, 0.01, -0.01, 0.03, ...]  # 12 meses
 
 precio_actual = stock_dataframe[target_col].iloc[-1]
 predicted_prices = []
@@ -52,10 +55,18 @@ for delta in delta_pred:
     precio_actual *= (1 + delta)
     predicted_prices.append(precio_actual)
 
+real_prices = stock_dataframe[target_col].copy()
+
+# Última fecha real
+last_date = stock_dataframe.index[-1]
+
+# Generamos 12 fechas futuras con frecuencia mensual
+future_dates = pd.date_range(start=last_date + pd.DateOffset(months=1), periods=n_output, freq='MS')
 
 # Graficar
-plt.plot(stock_dataframe.index, stock_dataframe[target_col], label='Histórico')
-plt.plot(predicted_df.index, predicted_df[f'Predicted_{target_col}'], label='Predicción', linestyle='--')
+plt.plot(contemporary_data.index, contemporary_data[target_col], label='Contemporaneo', linestyle=':')
+plt.plot(stock_dataframe.index, real_prices, label="Precio Real")
+plt.plot(future_dates, predicted_prices, 'r--', label="Predicción LSTM (12 meses)")
 plt.title(f'Predicción de {target_col} (12 meses a futuro)')
 plt.xlabel("Fecha")
 plt.ylabel("Precio Promedio")
