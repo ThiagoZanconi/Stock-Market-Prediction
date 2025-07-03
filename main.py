@@ -22,8 +22,10 @@ print(stock_dataframe.head())
 
 n_input = 24   # meses de entrada
 n_output = 12  # meses a predecir
-target_col = 'AAPL_Average_Price'
+target_col = 'GC=F_Average_Price'
 
+contemporary_data = yf.download("GC=F", start="2023-01-01", end="2025-01-01", interval="1mo")
+contemporary_data[target_col] = (contemporary_data['Open'] + contemporary_data['High'] + contemporary_data['Low'] + contemporary_data['Close']) / 4
 # Normalizamos todos los valores (multivariado)
 scaler = MinMaxScaler()
 scaled_data = scaler.fit_transform(stock_dataframe)
@@ -65,6 +67,7 @@ predicted_df = pd.DataFrame({f'Predicted_{target_col}': predicted_unscaled}, ind
 # Graficar
 plt.plot(stock_dataframe.index, stock_dataframe[target_col], label='Histórico')
 plt.plot(predicted_df.index, predicted_df[f'Predicted_{target_col}'], label='Predicción', linestyle='--')
+plt.plot(contemporary_data.index, contemporary_data[target_col], label='Contemporaneo', linestyle=':')
 plt.title(f'Predicción de {target_col} (12 meses a futuro)')
 plt.xlabel("Fecha")
 plt.ylabel("Precio Promedio")
