@@ -7,7 +7,7 @@ from keras.layers import LSTM, Dense
 from sklearn.preprocessing import MinMaxScaler
 
 # Símbolo de la acción (ej. Apple)
-ticker_options = ["ZS=F","^NDX", "CL=F", "GC=F", "AAPL"] #soja, nasdaq_100, oil, gold, apple
+ticker_options = ["ZS=F","^NDX", "CL=F", "GC=F", "AAPL", "PTON"] #soja, nasdaq_100, oil, gold, apple
 
 stock_dataframe = pd.DataFrame()
 
@@ -20,27 +20,36 @@ for ticker in ticker_options:
 # Mostrar las primeras filas
 print(stock_dataframe.head())
 
-target_col = 'AAPL_Average_Price'
+target_asset = ticker_options[1]
 
-contemporary_data = yf.download("AAPL", start="2023-01-01", end="2025-01-01", interval="1mo")
+target_col = target_asset+'_Average_Price'
+
+contemporary_data = yf.download(target_asset, start="2023-01-01", end="2025-01-01", interval="1mo")
 contemporary_data[target_col] = (contemporary_data['Open'] + contemporary_data['High'] + contemporary_data['Low'] + contemporary_data['Close']) / 4
 
 n_input = 12   # meses de entrada
 n_output = 12  # meses a predecir
 
+#Genera un dataframe con las variaciones de fila a fila (La primer fila se elimina, ya que en esta no hay variacion)
+df_delta = stock_dataframe.pct_change().dropna() 
 
-df_delta = stock_dataframe.pct_change().dropna()  # o df.diff() si preferís diferencias absolutas
-
-X, y = [], []
+X: list[np.ndarray] = []
+y: list[np.ndarray] = []
 for i in range(len(df_delta) - n_input - n_output + 1):
-    X.append(df_delta.iloc[i:i+n_input].values)  # (n_input, n_features)
-    y.append(df_delta.iloc[i+n_input:i+n_input+n_output][target_col].values)  # (n_output,)
+    X.append(df_delta.iloc[i:i+n_input].to_numpy())  # (n_input, n_features)
+    y.append(df_delta.iloc[i+n_input:i+n_input+n_output][target_col].to_numpy())  # (n_output,)
 
 X = np.array(X)
 y = np.array(y)
 
+print("Primer ejemplo de X:")
+print(X[0]) 
+
+print("\nPrimer ejemplo de y:")
+print(y[0]) 
+
 model = Sequential()
-model.add(LSTM(128, activation='relu', input_shape=(n_input, X.shape[2])))
+model.add(LSTM(64, activation='relu', input_shape=(n_input, X.shape[2])))
 model.add(Dense(n_output))
 model.compile(optimizer='adam', loss='mse')
 model.fit(X, y, epochs=100, verbose=0)
